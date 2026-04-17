@@ -1,26 +1,26 @@
 # Publishing Engine
 
-A Python-based manuscript rendering pipeline for generating publication-quality DOCX files for SCI journal submission. No Quarto or LaTeX dependency — builds Word documents entirely from Python with full control over every element.
+Python-based manuscript rendering pipeline for generating publication-quality DOCX files for SCI journal submission. No Quarto or LaTeX dependency -- builds Word documents entirely from Python.
 
 ## Features
 
-- **Native OMML equations** — editable in Word, rendered via MathML → OMML (Microsoft's MML2OMML.XSL)
-- **Booktabs-style tables** — navy headers, alternating rows, center-aligned, no vertical borders
-- **Embedded figures** — PNG/JPG with auto-numbered captions
-- **Bibliography from .bib** — pybtex parses BibTeX; supports `(Author, Year)` or `[1]` numbered styles
-- **Auto cross-references** — `@fig-label`, `@eq-label`, `@tbl-label` → `Fig. 3`, `Eq. (2)`, `Table 1`
-- **Track Changes XML** — revised paragraphs marked with `w:ins` elements (author + timestamp)
-- **Word/page count validation** — auto-check against journal limits
-- **Nomenclature table** — symbol/units/description from YAML
+- **Native OMML equations** -- editable in Word, rendered via MathML to OMML
+- **Booktabs-style tables** -- navy headers, alternating rows, no vertical borders
+- **Embedded figures** -- PNG/JPG with auto-numbered captions
+- **Bibliography from .bib** -- pybtex parses BibTeX; supports `(Author, Year)` or `[1]` numbered styles
+- **Auto cross-references** -- `@fig-label`, `@eq-label`, `@tbl-label` to `Fig. 3`, `Eq. (2)`, `Table 1`
+- **Track Changes XML** -- revised paragraphs marked with `w:ins` elements
+- **Word/page count validation** -- auto-check against journal limits
+- **Pre-render AI validation** -- `--validate` flag runs ai_style_checker before rendering
 - **7 output documents** per manuscript:
 
 | Output | Description |
 |--------|-------------|
 | `manuscript_full.docx` | Complete manuscript with inline figures |
 | `manuscript_manuscript.docx` | Text-only with figure placeholders |
-| `manuscript_revised.docx` | Revised with red text + Track Changes on addressed paragraphs |
-| `figures_and_tables.docx` | Companion document — each figure/table at full page width |
-| `response_to_reviewers.docx` | Point-by-point with grey comment boxes + blue responses |
+| `manuscript_revised.docx` | Revised with red text + Track Changes |
+| `figures_and_tables.docx` | Companion document -- full-width figures/tables |
+| `response_to_reviewers.docx` | Point-by-point with grey comment boxes |
 | `supplementary_material.docx` | Extended tables and methods |
 | `cover_letter.docx` | Formal cover letter |
 
@@ -29,39 +29,60 @@ A Python-based manuscript rendering pipeline for generating publication-quality 
 ```bash
 pip install python-docx pybtex latex2mathml lxml pypandoc
 
-# Render all 7 documents for the sample manuscript
-cd publishing_engine
+# Render all 7 documents for a manuscript
 python engine/render_paper.py sample
+
+# Render with AI style validation (blocks if score > threshold)
+python engine/render_paper.py sample --validate --threshold 30
+
+# Render all papers with validation
+python engine/render_paper.py --all --validate
+
+# Render companion documents
 python engine/render_figures_tables.py sample
 python engine/render_response.py sample
-python engine/render_supplementary.py sample
 python engine/render_coverletter.py sample
+python engine/render_supplementary.py sample
 ```
+
+## Pre-render Validation Hook
+
+The `--validate` flag automatically runs [ai_style_checker](https://github.com/ksk5429/ai_style_checker) before rendering:
+
+```bash
+# Check + render (continues regardless of score)
+python engine/render_paper.py paperB --validate
+
+# Gate: block render if AI score exceeds threshold
+python engine/render_paper.py paperB --validate --threshold 30
+
+# Works with --all (skips papers exceeding threshold)
+python engine/render_paper.py --all --validate --threshold 30
+```
+
+The hook:
+- Auto-discovers ai_style_checker in sibling directories
+- Returns `True` (passed), `False` (blocked), or `None` (checker not available)
+- Saves `style_report.json` to the paper's `_output/` directory
+- Logs warnings at WARNING level on checker failures
 
 ## Architecture
 
 ```
 publishing_engine/
 ├── engine/                      # Core rendering modules
-│   ├── docx_engine.py           # DocxBuilder class (title page, abstract, TOC, etc.)
-│   ├── qmd_parser.py            # .qmd → structured blocks
-│   ├── bib_formatter.py         # .bib → citations + bibliography
-│   ├── math_renderer.py         # LaTeX → MathML → OMML (from markdocx)
-│   ├── equation_handler.py      # Integrates math_renderer + pandoc fallback
-│   ├── render_paper.py          # Main renderer (full/manuscript/revised)
+│   ├── docx_engine.py           # DocxBuilder class (title page, abstract, TOC)
+│   ├── qmd_parser.py            # .qmd to structured blocks
+│   ├── bib_formatter.py         # .bib to citations + bibliography
+│   ├── math_renderer.py         # LaTeX to MathML to OMML
+│   ├── equation_handler.py      # Math renderer + pandoc fallback
+│   ├── render_paper.py          # Main renderer + --validate hook
 │   ├── render_figures_tables.py # Companion figures DOCX
 │   ├── render_response.py       # Response to reviewers
 │   ├── render_supplementary.py  # Supplementary material
 │   └── render_coverletter.py    # Cover letter
-│
+├── protocol.py                  # ManuscriptProtocol for pipeline integration
 ├── sample/                      # Demo manuscript
-│   ├── manuscript.qmd           # Source content (Quarto-compatible markdown)
-│   ├── references.bib           # BibTeX bibliography
-│   ├── figures/                 # PNG figures
-│   ├── Reviewers_Comments.txt   # Sample reviewer comments
-│   ├── revision_marks.py        # Keywords for red-marking revised paragraphs
-│   └── _output/                 # Generated DOCX files
-│
 ├── requirements.txt
 └── README.md
 ```
@@ -76,14 +97,12 @@ title: "Paper Title"
 author:
   - name: Author Name
     affiliation: University
-    email: author@university.edu
 keywords: [keyword1, keyword2]
 highlights: [highlight1, highlight2]
 nomenclature:
-  - ["S/D", "—", "Scour depth ratio"]
+  - ["S/D", "--", "Scour depth ratio"]
 limits:
   max_words: 9000
-  max_pages: 30
 citation_style: authoryear  # or "numbered"
 bibliography: references.bib
 ---
@@ -91,18 +110,18 @@ bibliography: references.bib
 
 ## Dependencies
 
-- Python 3.12+
-- python-docx 1.2.0
-- pybtex 0.26.1
-- latex2mathml 3.78.1
-- lxml 6.0.2
-- pandoc 3.9+ (for fallback equation rendering)
-- Microsoft Office (for MML2OMML.XSL — optional, improves equation quality)
+- Python 3.10+
+- python-docx, pybtex, latex2mathml, lxml, pypandoc
 
-## Credits
+## Ecosystem
 
-- Equation rendering adapted from [markdocx](https://github.com/shynneri-source/markdocx)
-- Inspired by [Pandoc Scholar](https://pandoc-scholar.github.io/) and [Manubot](https://manubot.org/)
+| Repo | Purpose |
+|------|---------|
+| [ai_style_checker](https://github.com/ksk5429/ai_style_checker) | 12-checker AI detection + fingerprinting |
+| [sentence_evolver](https://github.com/ksk5429/sentence_evolver) | 10-persona sentence rewriting + A/B scoring |
+| **publishing_engine** | .qmd to publication DOCX (this repo) |
+| [manuscript_pipeline](https://github.com/ksk5429/manuscript_pipeline) | Orchestrator chaining all engines |
+| [pdf_search_engine](https://github.com/ksk5429/pdf_search_engine) | Academic PDF discovery + markdown conversion |
 
 ## License
 
