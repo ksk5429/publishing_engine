@@ -91,16 +91,37 @@ def parse_qmd(qmd_path: Path) -> tuple[dict, list[Block]]:
 
         # Display equation ($$...$$)
         if stripped.startswith("$$"):
-            eq_lines = [stripped[2:]] if len(stripped) > 2 else []
+            # Check for single-line equation: $$equation$$ or $$equation$$ {#eq-label}
+            rest = stripped[2:]
+            close_idx = rest.find("$$")
+            if close_idx >= 0:
+                # Single-line: $$content$$ optionally followed by {#eq-label}
+                latex = rest[:close_idx].strip()
+                after = rest[close_idx + 2:].strip()
+                label_match = re.search(r'\{#eq-(\w+)\}', after)
+                label = label_match.group(1) if label_match else ""
+                blocks.append(Block(type="equation", latex=latex, label=label))
+                i += 1
+                continue
+            # Multi-line: opening $$ on its own line
+            eq_lines = [rest] if rest.strip() else []
             i += 1
             while i < len(lines):
-                if lines[i].strip().startswith("$$"):
+                line_s = lines[i].strip()
+                if line_s.startswith("$$") or line_s.endswith("$$"):
+                    # Found closing $$
+                    before_close = line_s.replace("$$", "").strip()
+                    if before_close:
+                        eq_lines.append(before_close)
                     label_match = re.search(r'\{#eq-(\w+)\}', lines[i])
                     label = label_match.group(1) if label_match else ""
                     break
-                eq_lines.append(lines[i].strip())
+                eq_lines.append(line_s)
                 i += 1
             latex = " ".join(eq_lines).strip()
+            # Safety: if latex is too long, it captured prose — truncate
+            if len(latex) > 500:
+                latex = latex[:200]
             blocks.append(Block(type="equation", latex=latex, label=label))
             i += 1
             continue
