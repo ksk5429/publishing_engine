@@ -411,15 +411,76 @@ PAPER_NAMES = [
 ]
 
 
+def _run_pre_render_check(paper_name: str, threshold: float = 0.0) -> dict | None:
+    """Pre-render validation hook: run ai_style_checker before rendering.
+
+    Returns checker result dict if ai_style_checker is available, None otherwise.
+    Logs warnings but never blocks render unless threshold is set and exceeded.
+    """
+    import subprocess
+
+    qmd_path = PAPERS_DIR / paper_name / "manuscript.qmd"
+    if not qmd_path.exists():
+        return None
+
+    # Search for ai_style_checker in sibling directories
+    checker_candidates = [
+        PAPERS_DIR.parent.parent / "ai_style_checker",      # TREE_OF_THOUGHT/ai_style_checker
+        PAPERS_DIR.parent / "ai_style_checker",
+        Path(__file__).parent.parent.parent / "ai_style_checker",
+    ]
+    checker_path = next((p for p in checker_candidates if (p / "cli.py").exists()), None)
+    if not checker_path:
+        return None
+
+    try:
+        import os
+        result = subprocess.run(
+            [sys.executable, str(checker_path / "cli.py"), str(qmd_path), "--format", "json"],
+            capture_output=True, text=True, cwd=str(checker_path),
+            env={**os.environ, "PYTHONUTF8": "1"}, timeout=30,
+        )
+        import json
+        data = json.loads(result.stdout)
+        score = data.get("ai_score", {}).get("score", 0)
+        label = data.get("ai_score", {}).get("label", "")
+        n_issues = sum(r.get("issue_count", 0) for r in data.get("results", []))
+
+        log.info("[PRE-CHECK] %s: AI score %.1f/100 (%s), %d issues", paper_name, score, label, n_issues)
+
+        if threshold > 0 and score > threshold:
+            log.warning(
+                "[PRE-CHECK] BLOCKED: AI score %.1f exceeds threshold %.1f. "
+                "Fix flagged issues before rendering.", score, threshold,
+            )
+            return None  # caller can check this
+
+        # Save report alongside manuscript
+        report_path = PAPERS_DIR / paper_name / "_output" / "style_report.json"
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+        return data
+    except Exception as e:
+        log.debug("[PRE-CHECK] ai_style_checker not available: %s", e)
+        return None
+
+
 def main():
     parser = argparse.ArgumentParser(description="Render .qmd -> styled DOCX (v2)")
     parser.add_argument("paper", nargs="?", help="Paper directory name")
     parser.add_argument("--all", action="store_true", help="Render all papers")
+    parser.add_argument("--validate", action="store_true",
+                        help="Run ai_style_checker before rendering")
+    parser.add_argument("--threshold", type=float, default=0.0,
+                        help="Block render if AI score exceeds this (requires --validate)")
     args = parser.parse_args()
 
     if args.all:
         for name in PAPER_NAMES:
             try:
+                if args.validate:
+                    _run_pre_render_check(name, args.threshold)
                 render_one(name, include_figures=True)
                 render_one(name, include_figures=False)
             except Exception as e:
@@ -427,6 +488,12 @@ def main():
                 import traceback
                 traceback.print_exc()
     elif args.paper:
+        if args.validate:
+            check_result = _run_pre_render_check(args.paper, args.threshold)
+            if args.threshold > 0 and check_result is None:
+                log.error("Pre-render validation failed or exceeded threshold. Aborting.")
+                sys.exit(1)
+
         render_one(args.paper, include_figures=True)
         render_one(args.paper, include_figures=False)
         # If revision_marks.py exists in the paper dir, also render revised
