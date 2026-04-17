@@ -82,7 +82,9 @@ class BibFormatter:
             s = s.replace(r"{\'a}", "\u00e1").replace(r"{\'i}", "\u00ed")
             s = s.replace(r"{\'o}", "\u00f3").replace(r"{\'u}", "\u00fa")
             s = s.replace(r"{\~a}", "\u00e3").replace(r"{\o}", "\u00f8")
+            s = s.replace(r"{\~A}", "\u00c3").replace(r"{\O}", "\u00d8")
             s = s.replace(r"\textendash", "\u2013").replace("--", "\u2013")
+            # Remove all remaining LaTeX braces: {API} -> API, {DNV GL} -> DNV GL
             s = re.sub(r'\{([^}]*)\}', r'\1', s)
             return s
 
