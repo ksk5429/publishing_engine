@@ -1,5 +1,8 @@
 """Manuscript Protocol — shared JSON format for the three-engine pipeline.
 
+VENDORED from manuscript_pipeline/protocol.py — do not edit here.
+Sync with: cp ../manuscript_pipeline/protocol.py .
+
 The protocol defines a standard data envelope that flows between:
   1. ai_style_checker  → produces style_flags
   2. sentence_evolver  → consumes flags, produces evolved_sentences
