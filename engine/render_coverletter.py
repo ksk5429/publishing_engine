@@ -16,7 +16,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 from docx.shared import Pt, Inches, RGBColor
 from qmd_parser import parse_qmd
 
-PAPERS_DIR = Path(__file__).parent.parent  # repo root
+PAPERS_DIR = Path(__file__).parent.parent
 BODY_FONT = "Times New Roman"
 NAVY = RGBColor(0x00, 0x33, 0x66)
 logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(message)s", datefmt="%H:%M:%S")

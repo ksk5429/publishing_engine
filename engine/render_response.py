@@ -27,7 +27,7 @@ from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 from docx.shared import Pt, Inches, RGBColor
 
-PAPERS_DIR = Path(__file__).parent.parent  # repo root
+PAPERS_DIR = Path(__file__).parent.parent
 BODY_FONT = "Times New Roman"
 NAVY = RGBColor(0x00, 0x33, 0x66)
 BLUE = RGBColor(0x15, 0x65, 0xC0)

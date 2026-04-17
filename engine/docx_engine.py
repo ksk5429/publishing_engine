@@ -574,7 +574,22 @@ class DocxBuilder:
 
     def credit(self, text: str):
         self.heading("CRediT Authorship Contribution Statement", level=1, numbered=False)
-        self.paragraph(text, indent=False)
+        p = self.doc.add_paragraph()
+        p.paragraph_format.first_line_indent = Pt(0)
+        p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+        # Bold author names, regular contribution text
+        import re
+        parts = re.split(r'(Kyeong-Sun Kim|Sung-Ryul Kim)', text)
+        for part in parts:
+            if part in ("Kyeong-Sun Kim", "Sung-Ryul Kim"):
+                r = p.add_run(part)
+                r.font.name = BODY_FONT
+                r.font.size = BODY_SIZE
+                r.font.bold = True
+            else:
+                r = p.add_run(part)
+                r.font.name = BODY_FONT
+                r.font.size = BODY_SIZE
 
     def coi(self, text: str):
         self.heading("Declaration of Competing Interests", level=1, numbered=False)

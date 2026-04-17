@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from docx_engine import DocxBuilder
 from qmd_parser import parse_qmd
 
-PAPERS_DIR = Path(__file__).parent.parent  # repo root
+PAPERS_DIR = Path(__file__).parent.parent
 logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(message)s", datefmt="%H:%M:%S")
 log = logging.getLogger("supplementary")
 

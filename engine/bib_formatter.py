@@ -17,6 +17,8 @@ from pybtex.database import parse_file as parse_bib_file
 class BibFormatter:
     def __init__(self, bib_path: Path, style: str = "authoryear"):
         """style: 'authoryear' → (Author, Year) or 'numbered' → [1]"""
+        from pybtex import errors as _pybtex_errors
+        _pybtex_errors.set_strict_mode(False)
         self.db = parse_bib_file(str(bib_path))
         self.style = style
         self._cited: list[str] = []
@@ -70,15 +72,25 @@ class BibFormatter:
         title = fields.get("title", "").strip("{}")
         journal = fields.get("journal", fields.get("booktitle", "")).strip("{}")
         volume = fields.get("volume", "")
-        pages = fields.get("pages", "")
+        pages = fields.get("pages", "").replace("--", "\u2013")
         doi = fields.get("doi", "")
         note = fields.get("note", "")
 
-        parts = [self._author_str(persons)]
+        # Clean LaTeX special chars
+        def _clean_latex(s: str) -> str:
+            s = s.replace(r"{\~n}", "\u00f1").replace(r"{\'e}", "\u00e9")
+            s = s.replace(r"{\'a}", "\u00e1").replace(r"{\'i}", "\u00ed")
+            s = s.replace(r"{\'o}", "\u00f3").replace(r"{\'u}", "\u00fa")
+            s = s.replace(r"{\~a}", "\u00e3").replace(r"{\o}", "\u00f8")
+            s = s.replace(r"\textendash", "\u2013").replace("--", "\u2013")
+            s = re.sub(r'\{([^}]*)\}', r'\1', s)
+            return s
+
+        parts = [_clean_latex(self._author_str(persons))]
         parts.append(f"({year}).")
-        parts.append(f"{title}.")
+        parts.append(f"{_clean_latex(title)}.")
         if journal:
-            j_str = journal
+            j_str = _clean_latex(journal)
             if volume:
                 j_str += f", {volume}"
             if pages:
@@ -87,7 +99,7 @@ class BibFormatter:
         if doi:
             parts.append(f"https://doi.org/{doi}")
         elif note:
-            parts.append(note)
+            parts.append(_clean_latex(note))
         return " ".join(parts)
 
     def resolve_citations(self, text: str) -> str:

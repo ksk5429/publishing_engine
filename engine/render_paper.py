@@ -26,7 +26,7 @@ from docx_engine import DocxBuilder
 from qmd_parser import parse_qmd, Block
 from bib_formatter import BibFormatter
 
-PAPERS_DIR = Path(__file__).parent.parent  # repo root
+PAPERS_DIR = Path(__file__).parent.parent
 
 SHARED_BLOCKS = {
     "credit": (
@@ -92,6 +92,19 @@ def _clean_markdown(text: str, bib: BibFormatter | None = None) -> str:
         s = s.replace(r'\geq', '\u2265')
         s = s.replace(r'\approx', '\u2248')
         s = s.replace(r'\times', '\u00D7')
+        s = s.replace(r'\pm', '\u00B1')
+        s = s.replace(r'\infty', '\u221E')
+        s = s.replace(r'\alpha', '\u03B1')
+        s = s.replace(r'\beta', '\u03B2')
+        s = s.replace(r'\delta', '\u03B4')
+        s = s.replace(r'\eta', '\u03B7')
+        s = s.replace(r'\theta', '\u03B8')
+        s = s.replace(r'\lambda', '\u03BB')
+        s = s.replace(r'\mu', '\u03BC')
+        s = s.replace(r'\rho', '\u03C1')
+        s = s.replace(r'\xi', '\u03BE')
+        # Fix em-dash rendering (-- → en-dash)
+        s = s.replace('--', '\u2013')
         s = s.replace(r'\mathrm{', '').replace('}', '')
         s = re.sub(r'\\(?:text|mathit|mathbf)\{([^}]*)\}', r'\1', s)
         s = s.replace(r'\,', ' ')
@@ -137,6 +150,11 @@ def _resolve_crossrefs(text: str, fig_map: dict, tbl_map: dict, eq_map: dict) ->
     text = re.sub(r'@fig-([\w-]+)', _fig_repl, text)
     text = re.sub(r'@tbl-([\w-]+)', _tbl_repl, text)
     text = re.sub(r'@eq-([\w-]+)', _eq_repl, text)
+    # Clean section references: §\ref{sec-*}, [sec]-*, §sec-*
+    text = re.sub(r'§?\\ref\{sec-([\w-]+)\}', r'§\1', text)
+    text = re.sub(r'\[sec\]-([\w-]+)', r'§\1', text)
+    text = re.sub(r'§sec-([\w-]+)', r'§\1', text)
+    text = re.sub(r'#sec-([\w-]+)', '', text)
     return text
 
 
@@ -187,7 +205,8 @@ def render_one(paper_name: str, include_figures: bool = True,
     # FIX 1: abstract — try YAML first, then extract from body blocks
     abstract = meta.get("abstract", "")
     if isinstance(abstract, str):
-        abstract = abstract.strip()
+        # YAML multi-line strings have literal \n — join into one paragraph
+        abstract = " ".join(abstract.strip().split())
     if not abstract:
         # Extract from # Abstract section in body
         in_abstract = False
@@ -263,8 +282,7 @@ def render_one(paper_name: str, include_figures: bool = True,
                 b.acknowledgements(SHARED_BLOCKS["acknowledgements"])
                 continue
             if "generative ai" in h_lower or "ai-assisted" in h_lower:
-                b.ai_disclosure(SHARED_BLOCKS["ai_disclosure"])
-                continue
+                continue  # Removed per KSK review — no AI disclosure section
             if "credit" in h_lower:
                 b.credit(SHARED_BLOCKS["credit"])
                 continue
@@ -355,7 +373,10 @@ def render_one(paper_name: str, include_figures: bool = True,
 
         elif block.type == "table":
             if block.headers:
-                b.table(block.headers, block.rows, caption_text=block.caption)
+                # Clean LaTeX in table cells
+                clean_headers = [_clean_markdown(h) for h in block.headers]
+                clean_rows = [[_clean_markdown(cell) for cell in row] for row in block.rows]
+                b.table(clean_headers, clean_rows, caption_text=block.caption)
 
         elif block.type == "equation":
             b.equation(block.latex)

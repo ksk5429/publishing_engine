@@ -79,6 +79,16 @@ def parse_qmd(qmd_path: Path) -> tuple[dict, list[Block]]:
             i += 1
             continue
 
+        # Skip code blocks (```...```)
+        if stripped.startswith("```"):
+            i += 1
+            while i < len(lines):
+                if lines[i].strip().startswith("```"):
+                    break
+                i += 1
+            i += 1
+            continue
+
         # Display equation ($$...$$)
         if stripped.startswith("$$"):
             eq_lines = [stripped[2:]] if len(stripped) > 2 else []
