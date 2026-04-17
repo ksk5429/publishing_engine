@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "publishing-engine"
+version = "2026.4.2"
+description = "Python-based manuscript rendering pipeline for publication-quality DOCX"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+authors = [
+    { name = "Kyeong Sun Kim", email = "ksk5429@users.noreply.github.com" },
+]
+keywords = [
+    "academic-writing",
+    "docx",
+    "manuscript",
+    "journal-submission",
+    "publishing",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Text Processing :: Markup",
+]
+dependencies = [
+    "python-docx>=1.2.0",
+    "pybtex>=0.26.0",
+    "latex2mathml>=3.78.0",
+    "lxml>=6.0.0",
+    "pypandoc>=1.17",
+    "pyyaml>=6.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/ksk5429/publishing_engine"
+Repository = "https://github.com/ksk5429/publishing_engine"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
