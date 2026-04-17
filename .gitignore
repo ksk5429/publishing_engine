@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+_output/*.docx
+*.tmp
+.DS_Store
